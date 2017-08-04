@@ -83,7 +83,7 @@ public class CloseConfirmationHandlerTest {
     public void setPreferences() throws Exception {
         Platform.runLater(() -> {
             handler.setPreferences(100, 100, 200, 200, false);
-            Assert.assertEquals(Double.valueOf(ApplicationPreferences.getInstance().getX()), Double.valueOf(100));
+            Assert.assertEquals(Double.valueOf(ApplicationPreferences.getX()), Double.valueOf(100));
             Assert.assertEquals(Double.valueOf(ApplicationPreferences.getInstance().getY()), Double.valueOf(100));
             Assert.assertEquals(Double.valueOf(ApplicationPreferences.getInstance().getWidth()), Double.valueOf(200));
             Assert.assertEquals(Double.valueOf(ApplicationPreferences.getInstance().getHeight()), Double.valueOf(200));
