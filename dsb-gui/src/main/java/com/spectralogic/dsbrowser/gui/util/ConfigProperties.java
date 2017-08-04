@@ -22,10 +22,10 @@ import org.slf4j.LoggerFactory;
 import java.util.Properties;
 
 //Singleton class for getting the language from config.properties
-public class ConfigProperties {
+public final class ConfigProperties {
     private final static Logger LOG = LoggerFactory.getLogger(ConfigProperties.class);
 
-    private static ConfigProperties configProperties;
+    private static final ConfigProperties configProperties = new ConfigProperties();
     private static String language;
 
     private ConfigProperties() {
@@ -33,8 +33,6 @@ public class ConfigProperties {
 
     public static ConfigProperties getInstance() {
         LOG.info("Reading properties file.");
-        if (configProperties == null) {
-            configProperties = new ConfigProperties();
             final Properties properties = new Properties();
             try {
                 properties.load(Main.class.getResourceAsStream("/config.properties"));
@@ -43,11 +41,10 @@ public class ConfigProperties {
             } catch (final Exception e) {
                 LOG.error("Property File not Loaded", e);
             }
-        }
         return configProperties;
     }
 
-    public String getLanguage() {
+    public static String getLanguage() {
         return language;
     }
 
