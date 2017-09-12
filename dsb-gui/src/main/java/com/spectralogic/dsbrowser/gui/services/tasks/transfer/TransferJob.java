@@ -33,8 +33,6 @@ import java.util.UUID;
 public class TransferJob extends Ds3JobTask{
 
     private final static Logger LOG = LoggerFactory.getLogger(TransferJob.class);
-    private final ImmutableMap<String, Path> fileMap;
-    private final ImmutableMap<String, Path> folderMap;
 
     @Inject
     public TransferJob(final Ds3Client ds3Client,
@@ -50,8 +48,8 @@ public class TransferJob extends Ds3JobTask{
         this.currentSession = currentSession;
         this.loggingService = loggingService;
         final Pair<ImmutableMap<String,Path>,ImmutableMap<String,Path>> fileandFolder = mapBuilder.build();
-        this.fileMap = fileandFolder.getKey();
-        this.folderMap = fileandFolder.getValue();
+        final ImmutableMap<String,Path> fileMap = fileandFolder.getKey();
+        final ImmutableMap<String,Path> folderMap = fileandFolder.getValue();
         this.job = jobBuilder.build();
     }
 
