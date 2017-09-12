@@ -33,6 +33,7 @@ import java.util.UUID;
 public class TransferJob extends Ds3JobTask{
 
     private final static Logger LOG = LoggerFactory.getLogger(TransferJob.class);
+    private final JobBuilder jobBuilder;
 
     @Inject
     public TransferJob(final Ds3Client ds3Client,
@@ -54,11 +55,12 @@ public class TransferJob extends Ds3JobTask{
         allBuilder.putAll(fileMap);
         allBuilder.putAll(folderMap);
         final ImmutableMap<String,Path> allMap = allBuilder.build();
-        this.job = jobBuilder.build();
+        this.jobBuilder = jobBuilder;
     }
 
     @Override
     public void executeJob() throws Exception {
+        this.job = jobBuilder.build();
 
     }
 
