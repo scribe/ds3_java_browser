@@ -50,6 +50,10 @@ public class TransferJob extends Ds3JobTask{
         final Pair<ImmutableMap<String,Path>,ImmutableMap<String,Path>> fileandFolder = mapBuilder.build();
         final ImmutableMap<String,Path> fileMap = fileandFolder.getKey();
         final ImmutableMap<String,Path> folderMap = fileandFolder.getValue();
+        final ImmutableMap.Builder<String,Path> allBuilder = ImmutableMap.builder();
+        allBuilder.putAll(fileMap);
+        allBuilder.putAll(folderMap);
+        final ImmutableMap<String,Path> allMap = allBuilder.build();
         this.job = jobBuilder.build();
     }
 
