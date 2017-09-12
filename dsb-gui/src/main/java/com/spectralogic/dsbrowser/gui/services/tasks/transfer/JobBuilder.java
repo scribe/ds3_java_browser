@@ -21,5 +21,5 @@ import java.util.List;
 
 @FunctionalInterface
 public interface JobBuilder {
-    Ds3ClientHelpers.Job build(List<Ds3Object> ds3ObjectList);
+    Ds3ClientHelpers.Job build();
 }
