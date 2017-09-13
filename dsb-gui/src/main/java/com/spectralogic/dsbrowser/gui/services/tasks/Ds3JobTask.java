@@ -101,7 +101,7 @@ public abstract class Ds3JobTask extends Task<Boolean> {
         });
     }
 
-    void getTransferRates(final Instant jobStartInstant, final AtomicLong totalSent, final long totalJobSize, final String sourceLocation, final String targetLocation) {
+    protected void getTransferRates(final Instant jobStartInstant, final AtomicLong totalSent, final long totalJobSize, final String sourceLocation, final String targetLocation) {
         final Instant currentTime = Instant.now();
         final long timeElapsedInSeconds = TimeUnit.MILLISECONDS.toSeconds(currentTime.toEpochMilli() - jobStartInstant.toEpochMilli());
         long transferRate = 0;

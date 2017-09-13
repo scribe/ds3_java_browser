@@ -14,10 +14,9 @@ package com.spectralogic.dsbrowser.gui.services.tasks.transfer;/*
  */
 
 import com.google.common.collect.ImmutableMap;
-import javafx.util.Pair;
 
 import java.nio.file.Path;
 
-@FunctionalInterface  public interface MapBuilder {
-    Pair<ImmutableMap<String,Path>,ImmutableMap<String,Path>> build();
+@FunctionalInterface  public interface FileMapBuilder {
+    ImmutableMap<String, Path> build();
 }

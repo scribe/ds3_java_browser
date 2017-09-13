@@ -15,11 +15,10 @@
 
 package com.spectralogic.dsbrowser.gui.services.tasks.transfer;
 
-import com.google.common.collect.ImmutableMap;
 import com.spectralogic.ds3client.Ds3Client;
 import com.spectralogic.ds3client.commands.spectrads3.GetJobSpectraS3Request;
 import com.spectralogic.ds3client.commands.spectrads3.ModifyJobSpectraS3Request;
-import com.spectralogic.ds3client.helpers.*;
+import com.spectralogic.ds3client.helpers.MetadataAccess;
 import com.spectralogic.ds3client.models.MasterObjectList;
 import com.spectralogic.ds3client.models.Priority;
 import com.spectralogic.dsbrowser.api.services.logging.LoggingService;
@@ -28,34 +27,37 @@ import com.spectralogic.dsbrowser.gui.services.jobinterruption.JobInterruptionSt
 import com.spectralogic.dsbrowser.gui.services.tasks.Ds3JobTask;
 import com.spectralogic.dsbrowser.gui.util.CheckNetwork;
 import com.spectralogic.dsbrowser.gui.util.ParseJobInterruptionMap;
-import javafx.util.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.time.Instant;
 import java.util.Optional;
 import java.util.ResourceBundle;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class TransferJob extends Ds3JobTask {
 
     private final static Logger LOG = LoggerFactory.getLogger(TransferJob.class);
     private final int maximumNumberOfParallelThreads;
-    private final ImmutableMap<String, Path> fileMap;
-    private final ImmutableMap<String, Path> folderMap;
-    private final Optional<MetadataAccess> metadata;
+    private final FileMapBuilder fileMapBuilder;
+    private final FolderMapBuilder folderMapBuilder;
+    private final MetadataBuilder metadataBuilder;
+    private final JobPriorityBuilder jobPriorityBuilder;
+    private final JobBuilder jobBuilder;
     private final LocationBuilder locationBuilder;
-    private final Optional<Priority> jobPriority;
-    private final DataTransferredListener dataTransferredListener;
-    private final WaitingForChunksListener waitingForChunksListener;
-    private final ObjectCompletedListener objectCompletedListener;
-    private final FailureEventListener failureEventListener;
-    private final Ds3ClientHelpers.ObjectChannelBuilder objectChannelBuilder;
-    private final ChecksumListener checksumListener;
+    private final DataTransferredListenerBuilder dataTransferredListenerBuilder;
+    private final WaitingForChunksListenerBuilder waitingForChunksListenerBuilder;
+    private final ObjectCompletedListenerBuider objectCompletedListenerBuilder;
+    private final FailureEventListenerBuilder failureEventListenerBuilder;
+    private final ObjectChannelBuilderBuilder objectChannelBuilderBuilder;
+    private final ChecksumListenerBuilder checksumListenerBuilder;
     private final String endpoint;
+    private final MetadataReceivedListenerBuilder metadataReceivedListenerBuilder;
+    private final JobInterruptionStore jobInterruptionStore;
 
     @Inject
     public TransferJob(final Ds3Client ds3Client,
@@ -65,16 +67,21 @@ public class TransferJob extends Ds3JobTask {
             final String endpoint,
             final LoggingService loggingService,
             final JobBuilder jobBuilder,
-            final MapBuilder mapBuilder,
             final LocationBuilder locationBuilder,
             final JobPriorityBuilder jobPriorityBuilder,
-            final DataTransferredListener dataTransferredListener,
-            final WaitingForChunksListener waitingForChunksListener,
-            final ObjectCompletedListener objectCompletedListener,
-            final Ds3ClientHelpers.ObjectChannelBuilder objectChannelBuilder,
-            final ChecksumListener checksumListener,
+            final FileMapBuilder fileMapBuilder,
+            final FolderMapBuilder folderMapBuilder,
+            final DataTransferredListenerBuilder dataTransferredListenerBuilder,
+            final WaitingForChunksListenerBuilder waitingForChunksListenerBuilder,
+            final ObjectCompletedListenerBuider objectCompletedListenerBuilder,
+            final ObjectChannelBuilderBuilder objectChannelBuilderBuilder,
+            final ChecksumListenerBuilder checksumListenerBuilder,
+            final MetadataReceivedListenerBuilder metadataReceivedListenerBuilder,
             final MetadataBuilder metadataBuilder,
-            final FailureEventListener failureEventListner) {
+            final FailureEventListenerBuilder failureEventListnerBuilder,
+            final JobInterruptionStore jobInterruptionStore) {
+        this.fileMapBuilder = fileMapBuilder;
+        this.folderMapBuilder = folderMapBuilder;
         this.maximumNumberOfParallelThreads = maximumNumberOfParallelThreads;
         this.ds3Client = ds3Client;
         this.resourceBundle = resourceBundle;
@@ -82,18 +89,17 @@ public class TransferJob extends Ds3JobTask {
         this.deepStorageBrowserPresenter = deepStorageBrowserPresenter;
         this.endpoint = endpoint;
         this.loggingService = loggingService;
-        final Pair<ImmutableMap<String, Path>, ImmutableMap<String, Path>> fileandFolder = mapBuilder.build();
-        this.fileMap = fileandFolder.getKey();
-        this.folderMap = fileandFolder.getValue();
-        this.metadata = metadataBuilder.build();
-        this.job = jobBuilder.build();
-        this.jobPriority = jobPriorityBuilder.build();
-        this.dataTransferredListener = dataTransferredListener;
-        this.waitingForChunksListener = waitingForChunksListener;
-        this.objectCompletedListener = objectCompletedListener;
-        this.failureEventListener = failureEventListner;
-        this.checksumListener = checksumListener;
-        this.objectChannelBuilder = objectChannelBuilder;
+        this.jobBuilder = jobBuilder;
+        this.jobPriorityBuilder = jobPriorityBuilder;
+        this.dataTransferredListenerBuilder = dataTransferredListenerBuilder;
+        this.waitingForChunksListenerBuilder = waitingForChunksListenerBuilder;
+        this.objectCompletedListenerBuilder = objectCompletedListenerBuilder;
+        this.failureEventListenerBuilder = failureEventListnerBuilder;
+        this.checksumListenerBuilder = checksumListenerBuilder;
+        this.objectChannelBuilderBuilder = objectChannelBuilderBuilder;
+        this.metadataBuilder = metadataBuilder;
+        this.metadataReceivedListenerBuilder = metadataReceivedListenerBuilder;
+        this.jobInterruptionStore = jobInterruptionStore;
 
     }
 
@@ -103,26 +109,29 @@ public class TransferJob extends Ds3JobTask {
             hostNotAvailable();
             return;
         }
-        if(job == null) {
-            return;
-        }
+
+        job = jobBuilder.build();
+        final Optional<MetadataAccess> metadata = metadataBuilder.build();
+        final Optional<Priority> jobPriority = jobPriorityBuilder.build();
+
         job.withMaxParallelRequests(maximumNumberOfParallelThreads);
         metadata.ifPresent(metadataAccess -> job.withMetadata(metadataAccess));
         jobPriority.ifPresent(this::modifyPriority);
+        final AtomicLong totalSent = new AtomicLong(0L);
         final MasterObjectList mol = ds3Client.getJobSpectraS3(new GetJobSpectraS3Request(getJobId())).getMasterObjectListResult();
         final long totalSize = mol.getOriginalSizeInBytes();
         final String jobType = mol.getRequestType().toString();
         final String bukcet = mol.getBucketName();
 
-        ParseJobInterruptionMap.saveValuesToFiles(JobInterruptionStore.loadJobIds(), fileMap, folderMap, endpoint, getJobId(), totalSize, locationBuilder.build(), jobType, bukcet);
-        job.attachDataTransferredListener(dataTransferredListener);
-        job.attachWaitingForChunksListener(waitingForChunksListener);
-        job.attachObjectCompletedListener(objectCompletedListener);
-        job.attachFailureEventListener(failureEventListener);
-        job.attachChecksumListener(checksumListener);
-        job.transfer(objectChannelBuilder);
-        ParseJobInterruptionMap.removeJobIdFromFile(JobInterruptionStore.loadJobIds(), getJobId().toString(), endpoint);
-
+        ParseJobInterruptionMap.saveValuesToFiles(jobInterruptionStore, fileMapBuilder.build(), folderMapBuilder.build(), endpoint, getJobId(), totalSize, locationBuilder.build(), jobType, bukcet);
+        job.attachDataTransferredListener(dataTransferredListenerBuilder.build(this, totalSent, totalSize));
+        job.attachWaitingForChunksListener(waitingForChunksListenerBuilder.build(this));
+        job.attachObjectCompletedListener(objectCompletedListenerBuilder.build(this, Instant.now(), totalSent, totalSize));
+        job.attachFailureEventListener(failureEventListenerBuilder.build(this));
+        job.attachChecksumListener(checksumListenerBuilder.build(this));
+        job.attachMetadataReceivedListener(metadataReceivedListenerBuilder.build(this));
+        job.transfer(objectChannelBuilderBuilder.build(this));
+        ParseJobInterruptionMap.removeJobIdFromFile(jobInterruptionStore, getJobId().toString(), endpoint);
     }
 
     private void modifyPriority(final Priority jobString) {
@@ -131,6 +140,16 @@ public class TransferJob extends Ds3JobTask {
         } catch (final IOException e) {
             e.printStackTrace();
         }
+    }
+
+    @Override
+    protected void updateProgress(final double workDone, final double max) {
+        super.updateProgress(workDone, max);
+    }
+
+    @Override
+    protected void getTransferRates(final Instant jobStartInstant, final AtomicLong totalSent, final long totalJobSize, final String sourceLocation, final String targetLocation) {
+        super.getTransferRates(jobStartInstant, totalSent, totalJobSize, sourceLocation, targetLocation);
     }
 
     @Override

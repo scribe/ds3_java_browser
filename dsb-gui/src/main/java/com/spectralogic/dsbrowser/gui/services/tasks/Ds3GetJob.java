@@ -174,7 +174,7 @@ public class Ds3GetJob extends Ds3JobTask {
         job.attachObjectCompletedListener(o -> setObjectCompleteListener(o, startTime, totalJobSize));
         job.attachMetadataReceivedListener(this::setMetadataReceivedListener);
         job.attachWaitingForChunksListener(this::setWaitingForChunksListener);
-        job.attachDataTransferredListener(l -> setDataTransferredListener(l, totalJobSize));
+        job.attachDataTransferredListener(l -> setDataTransferredListener(l, totalJobSize, totalSent));
     }
 
     private Ds3ClientHelpers.ObjectChannelBuilder getTransferJob(final String prefix) throws IOException {
@@ -271,8 +271,8 @@ public class Ds3GetJob extends Ds3JobTask {
         }
     }
 
-    private void setDataTransferredListener(final long l, final Long totalJobSize) {
-        updateProgress(totalSent.getAndAdd(l) / 2, totalJobSize);
+    private void setDataTransferredListener(final long l, final Long totalJobSize, final AtomicLong sent) {
+        updateProgress(sent.getAndAdd(l) / 2, totalJobSize);
         totalSent.addAndGet(l);
     }
 
@@ -327,5 +327,6 @@ public class Ds3GetJob extends Ds3JobTask {
     public interface Ds3GetJobFactory {
         Ds3GetJob createDs3GetJob(final List<Ds3TreeTableValueCustom> selectedItems, final Path fileTreePath);
     }
+
 
 }
