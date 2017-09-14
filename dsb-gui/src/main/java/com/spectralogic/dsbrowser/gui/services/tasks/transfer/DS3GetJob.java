@@ -78,7 +78,7 @@ public class DS3GetJob extends TransferJob {
                     }
                     return null;
                 },
-                () -> fileTreePath.toString(),
+                fileTreePath::toString,
                 () -> getPriority(jobPriority),
                 () -> getFileMap(selectedItems),
                 () -> getFolderMap(selectedItems),
