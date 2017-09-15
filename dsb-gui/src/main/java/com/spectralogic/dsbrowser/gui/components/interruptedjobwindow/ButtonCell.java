@@ -19,12 +19,10 @@ import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 import com.spectralogic.dsbrowser.api.services.logging.LogType;
 import com.spectralogic.dsbrowser.api.services.logging.LoggingService;
-import com.spectralogic.dsbrowser.gui.components.ds3panel.Ds3Common;
 import com.spectralogic.dsbrowser.gui.services.JobWorkers;
 import com.spectralogic.dsbrowser.gui.services.Workers;
 import com.spectralogic.dsbrowser.gui.services.jobinterruption.FilesAndFolderMap;
 import com.spectralogic.dsbrowser.gui.services.jobinterruption.JobInterruptionStore;
-import com.spectralogic.dsbrowser.gui.services.settings.SettingsStore;
 import com.spectralogic.dsbrowser.gui.services.tasks.Ds3CancelSingleJobTask;
 import com.spectralogic.dsbrowser.gui.services.tasks.RecoverInterruptedJob;
 import com.spectralogic.dsbrowser.gui.util.*;
@@ -41,89 +39,19 @@ import java.util.Map;
 import java.util.ResourceBundle;
 import java.util.UUID;
 
+/**
+ * The far right column in the JobInfoPresenter contains a "ButtonCell" per row, with a "Recover" green check
+ * or a "Cancel" red x
+ */
 public class ButtonCell extends TreeTableCell<JobInfoModel, Boolean> {
     private final static Logger LOG = LoggerFactory.getLogger(ButtonCell.class);
+    private final HBox hbox;
     private final Button recoverButton = new Button();
     private final Button cancelButton = new Button();
-    private final ResourceBundle resourceBundle = ResourceBundleProperties.getResourceBundle();
-    private final HBox hbox = createHBox();
-    private final LazyAlert alert = new LazyAlert("Error");
-    private final RecoverInterruptedJob.RecoverInterruptedJobFactory recoverInterruptedJobFactory;
 
     @Inject
-    public ButtonCell(final JobWorkers jobWorkers,
-                      final Workers workers,
-                      @Assisted final EndpointInfo endpointInfo,
-                      final JobInterruptionStore jobInterruptionStore,
-                      final JobInfoPresenter jobInfoPresenter,
-                      final LoggingService loggingService,
-                      final RecoverInterruptedJob.RecoverInterruptedJobFactory recoverInterruptedJobFactory) {
-        this.recoverInterruptedJobFactory = recoverInterruptedJobFactory;
-        recoverButton.setOnAction(recoverEvent -> {
-            LOG.info("Recover Job button clicked");
-            if (CheckNetwork.isReachable(endpointInfo.getClient())) {
-                loggingService.logMessage(resourceBundle.getString("initiatingRecovery"), LogType.INFO);
-                final String uuid = getTreeTableRow().getTreeItem().getValue().getJobId();
-                final FilesAndFolderMap filesAndFolderMap = endpointInfo.getJobIdAndFilesFoldersMap().get(uuid);
-
-                final RecoverInterruptedJob recoverInterruptedJob = recoverInterruptedJobFactory.createRecoverInterruptedJob(UUID.fromString(uuid), endpointInfo);
-                jobWorkers.execute(recoverInterruptedJob);
-
-                final Map<String, FilesAndFolderMap> jobIDMap = ParseJobInterruptionMap.getJobIDMap(jobInterruptionStore.getJobIdsModel().getEndpoints(), endpointInfo.getEndpoint(), endpointInfo.getDeepStorageBrowserPresenter().getJobProgressView(), null);
-                ParseJobInterruptionMap.setButtonAndCountNumber(jobIDMap, endpointInfo.getDeepStorageBrowserPresenter());
-                jobInfoPresenter.refresh(getTreeTableView(), jobInterruptionStore, endpointInfo);
-
-                recoverInterruptedJob.setOnSucceeded(event -> {
-                    RefreshCompleteViewWorker.refreshCompleteTreeTableView(endpointInfo.getDs3Common(), workers, loggingService);
-                    jobInfoPresenter.refresh(getTreeTableView(), jobInterruptionStore, endpointInfo);
-                });
-                recoverInterruptedJob.setOnFailed(event -> {
-                    loggingService.logMessage("Failed to recover " + filesAndFolderMap.getType() + " job " + endpointInfo.getEndpoint(), LogType.ERROR);
-                    jobInfoPresenter.refresh(getTreeTableView(), jobInterruptionStore, endpointInfo);
-                });
-                recoverInterruptedJob.setOnCancelled(event -> {
-                    if (CheckNetwork.isReachable(endpointInfo.getClient())) {
-                        final Ds3CancelSingleJobTask ds3CancelSingleJobTask = new Ds3CancelSingleJobTask(uuid, endpointInfo, jobInterruptionStore, resourceBundle.getString("recover"), loggingService);
-                        workers.execute(ds3CancelSingleJobTask);
-                        ds3CancelSingleJobTask.setOnSucceeded(eventCancel -> {
-                                    LOG.info("Cancellation of recovered job success");
-                                    jobInfoPresenter.refresh(getTreeTableView(), jobInterruptionStore, endpointInfo);
-                                }
-                        );
-
-                    } else {
-                        ErrorUtils.dumpTheStack(resourceBundle.getString("host") + endpointInfo.getClient().getConnectionDetails().getEndpoint() + StringConstants.SPACE + resourceBundle.getString("unreachable"));
-                        alert.showAlert(resourceBundle.getString("host") + endpointInfo.getClient().getConnectionDetails().getEndpoint() + StringConstants.SPACE + resourceBundle.getString("unreachable"));
-                        loggingService.logMessage(resourceBundle.getString("unableToReachNetwork"), LogType.ERROR);
-                    }
-                });
-
-            } else {
-                final String alertMsg = resourceBundle.getString("host") + StringConstants.SPACE + endpointInfo.getClient().getConnectionDetails().getEndpoint() + StringConstants.SPACE + resourceBundle.getString("unreachable");
-                ErrorUtils.dumpTheStack(alertMsg);
-                alert.showAlert(alertMsg);
-                loggingService.logMessage(resourceBundle.getString("unableToReachNetwork"), LogType.ERROR);
-            }
-        });
-        cancelButton.setOnAction(t -> {
-            if (CheckNetwork.isReachable(endpointInfo.getClient())) {
-                final String uuid = getTreeTableRow().getTreeItem().getValue().getJobId();
-                final Ds3CancelSingleJobTask ds3CancelSingleJobTask = new Ds3CancelSingleJobTask(uuid, endpointInfo, jobInterruptionStore, resourceBundle.getString("recover"), loggingService);
-                workers.execute(ds3CancelSingleJobTask);
-                ds3CancelSingleJobTask.setOnSucceeded(event -> {
-                            LOG.info("Cancellation of interrupted job failed");
-                            jobInfoPresenter.refresh(getTreeTableView(), jobInterruptionStore, endpointInfo);
-                        }
-                );
-
-            } else {
-                final String errorMsg = resourceBundle.getString("host") + endpointInfo.getClient().getConnectionDetails().getEndpoint() + StringConstants.SPACE + resourceBundle.getString("unreachable");
-                ErrorUtils.dumpTheStack(errorMsg);
-                alert.showAlert(errorMsg);
-                loggingService.logMessage(resourceBundle.getString("unableToReachNetwork"), LogType.ERROR);
-            }
-
-        });
+    public ButtonCell(final ResourceBundle resourceBundle) {
+        this.hbox = createHBox(resourceBundle, recoverButton, cancelButton);
     }
 
     //Display button if the row is not empty
@@ -141,23 +69,48 @@ public class ButtonCell extends TreeTableCell<JobInfoModel, Boolean> {
         }
     }
 
-    private HBox createHBox() {
-        final HBox hbox = new HBox();
+    Button getRecoverButton() {
+        return this.recoverButton;
+    }
+
+    Button getCancelButton() {
+        return this.cancelButton;
+    }
+
+    private static Button createRecoverButton(final ResourceBundle resourceBundle,
+                                              final Button recoverButton) {
         final ImageView recoverImageView = new ImageView(ImageURLs.RECOVER_IMAGE);
         recoverImageView.setFitHeight(15);
         recoverImageView.setFitWidth(15);
         recoverButton.setGraphic(recoverImageView);
         recoverButton.setStyle("-fx-background-color: transparent;");
         recoverButton.setTooltip(new Tooltip(resourceBundle.getString("recoverJob")));
+
+        return recoverButton;
+    }
+
+    private static Button createCancelButton(final ResourceBundle resourceBundle,
+                                             final Button cancelButton) {
         final ImageView cancelImageView = new ImageView(ImageURLs.CANCEL_RECOVER);
         cancelImageView.setFitHeight(15);
         cancelImageView.setFitWidth(15);
         cancelButton.setGraphic(cancelImageView);
         cancelButton.setStyle("-fx-background-color: transparent;");
         cancelButton.setTooltip(new Tooltip(resourceBundle.getString("cancelJob")));
+
+        return cancelButton;
+    }
+
+    private static HBox createHBox(final ResourceBundle resourceBundle,
+                                   final Button recoverButton,
+                                   final Button cancelButton) {
+        final HBox hbox = new HBox();
         hbox.setSpacing(3.0);
         hbox.setAlignment(Pos.CENTER);
-        hbox.getChildren().addAll(recoverButton, cancelButton);
+
+        hbox.getChildren().addAll(
+                createRecoverButton(resourceBundle, recoverButton),
+                createCancelButton(resourceBundle, cancelButton));
         return hbox;
     }
 
