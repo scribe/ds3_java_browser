@@ -40,6 +40,7 @@ import com.spectralogic.dsbrowser.gui.services.settings.ShowCachedJobSettings;
 import com.spectralogic.dsbrowser.gui.services.tasks.Ds3JobTask;
 import com.spectralogic.dsbrowser.gui.util.*;
 import com.spectralogic.dsbrowser.gui.util.treeItem.SafeHandler;
+import impl.org.controlsfx.skin.TaskProgressViewSkin;
 import io.reactivex.Observable;
 import io.reactivex.rxjavafx.schedulers.JavaFxScheduler;
 import javafx.beans.binding.Bindings;
@@ -205,7 +206,7 @@ public class DeepStorageBrowserPresenter implements Initializable {
         anchorPane.setMinHeight(35);
 
         Bindings.bindContentBidirectional(jobWorkers.getTasks(), jobProgressView.getTasks());
-        jobProgressView.setSkin(new DeepStorageTaskProgressViewSkin<>(jobProgressView));
+        jobProgressView.setSkin(new TaskProgressViewSkin<>(jobProgressView));
 
         jobProgressView.setPrefHeight(1000);
         jobProgressVBox.getChildren().add(anchorPane);
