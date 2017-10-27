@@ -27,10 +27,7 @@ import com.spectralogic.dsbrowser.gui.services.ds3Panel.DeleteService;
 import com.spectralogic.dsbrowser.gui.services.tasks.Ds3DeleteBucketTask;
 import com.spectralogic.dsbrowser.gui.services.tasks.Ds3DeleteFilesTask;
 import com.spectralogic.dsbrowser.gui.services.tasks.Ds3DeleteFoldersTask;
-import com.spectralogic.dsbrowser.gui.util.DateTimeUtils;
-import com.spectralogic.dsbrowser.gui.util.Ds3Task;
-import com.spectralogic.dsbrowser.gui.util.LazyAlert;
-import com.spectralogic.dsbrowser.gui.util.StringConstants;
+import com.spectralogic.dsbrowser.gui.util.*;
 import com.spectralogic.dsbrowser.gui.util.treeItem.SafeHandler;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -146,7 +143,7 @@ public class DeleteItemPresenter implements Initializable {
             loggingService.logMessage(resourceBundle.getString("deleteSuccess"), LogType.SUCCESS);
             LOG.info("Successfully deleted selected item(s).");
 
-            DeleteService.managePathIndicator(ds3Common, workers, dateTimeUtils, loggingService);
+            RefreshCompleteViewWorker.refreshCompleteTreeTableView(ds3Common, workers, dateTimeUtils, loggingService);
         }));
         workers.execute(deleteTask);
     }

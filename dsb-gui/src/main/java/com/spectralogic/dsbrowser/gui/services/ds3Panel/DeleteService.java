@@ -143,39 +143,6 @@ public final class DeleteService {
         DeleteFilesPopup.show(ds3DeleteFilesTask, ds3Common);
     }
 
-    public static void managePathIndicator(final Ds3Common ds3Common,
-                                           final Workers workers,
-                                           final DateTimeUtils dateTimeUtils,
-                                           final LoggingService loggingService) {
-        Platform.runLater(() -> {
-            final TreeTableView<Ds3TreeTableValue> ds3TreeTable = ds3Common.getDs3TreeTableView();
-            final ObservableList<TreeItem<Ds3TreeTableValue>> selectedItems = ds3TreeTable.getSelectionModel().getSelectedItems();
-
-            if (selectedItems.stream().map(TreeItem::getValue).anyMatch(Ds3TreeTableValue::isSearchOn)) {
-                ds3TreeTable.getRoot().getChildren().removeAll(selectedItems);
-                ds3TreeTable.getSelectionModel().clearSelection();
-            } else {
-                final Optional<TreeItem<Ds3TreeTableValue>> optionalItem = ds3TreeTable.getSelectionModel().getSelectedItems().stream()
-                        .findFirst();
-                optionalItem.ifPresent( item -> {
-                    final TreeItem<Ds3TreeTableValue> selectedItem = item.getParent();
-                    if (ds3TreeTable.getRoot() == null || ds3TreeTable.getRoot().getValue() == null) {
-                        ds3TreeTable.setRoot(ds3TreeTable.getRoot().getParent());
-                        ds3TreeTable.getSelectionModel().clearSelection();
-                        ds3Common.getDs3PanelPresenter().getDs3PathIndicator().setText(StringConstants.EMPTY_STRING);
-                        ds3Common.getDs3PanelPresenter().getDs3PathIndicatorTooltip().setText(StringConstants.EMPTY_STRING);
-                    } else {
-                        ds3TreeTable.setRoot(selectedItem);
-                    }
-                    ds3TreeTable.getSelectionModel().select(selectedItem);
-
-                    ds3TreeTable.getSelectionModel().clearSelection();
-                    RefreshCompleteViewWorker.refreshCompleteTreeTableView(ds3Common, workers, dateTimeUtils, loggingService);
-                });
-            }
-        });
-    }
-
     private static ImmutableList<String> getBuckets(final ImmutableList<TreeItem<Ds3TreeTableValue>> values) {
         return values.stream().map(TreeItem::getValue).map(Ds3TreeTableValue::getBucketName).distinct().collect
                 (GuavaCollectors.immutableList());
