@@ -206,7 +206,7 @@ public class Ds3TreeTablePresenter implements Initializable {
         ds3TreeTable.rootProperty().addListener((observable, oldValue, newValue) -> {
             try {
                 final String newText;
-                if (newValue.getParent() == null) {
+                if (newValue == null || newValue.getParent() == null) {
                     newText = "";
                 } else {
                     newText = newValue.getValue().getFullPath();
